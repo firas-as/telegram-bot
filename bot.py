@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import *
 
 TOKEN = "PUT_YOUR_TOKEN"
-CHANNEL = "@your_channel"
+CHANNEL = "Evora Fx VIP GOLD"
 
 user_data_store = {}
 
