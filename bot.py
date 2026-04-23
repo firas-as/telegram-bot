@@ -2,7 +2,8 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import *
 
-TOKEN = "PUT_YOUR_TOKEN"
+TOKEN = "import os
+TOKEN = os.getenv("TOKEN")"
 CHANNEL = "@Evora Fx VIP GOLD"
 
 user_data_store = {}
