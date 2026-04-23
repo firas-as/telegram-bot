@@ -13,7 +13,7 @@ from telegram.ext import (
 
 # إعدادات أساسية
 TOKEN = os.getenv("TOKEN")
-CHANNEL = "@your_channel"  # حط اسم قناتك مع @
+CHANNEL = "@Evora Fx VIP GOLD"  # حط اسم قناتك مع @
 
 logging.basicConfig(level=logging.INFO)
 
