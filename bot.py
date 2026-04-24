@@ -2,6 +2,8 @@ import os
 import json
 import time
 import logging
+import asyncio
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,7 +14,7 @@ from telegram.ext import (
     filters,
 )
 
-# ====== إعداداتك ======
+# ========= إعدادات =========
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 1332757886
 
@@ -31,7 +33,7 @@ DB_FILE = "users.json"
 
 logging.basicConfig(level=logging.INFO)
 
-# ====== داتا ======
+# ========= قاعدة بيانات =========
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
@@ -44,7 +46,7 @@ def save_db(data):
 
 db = load_db()
 
-# ====== start ======
+# ========= /start =========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("💎 VIP", callback_data="vip")],
@@ -54,7 +56,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ====== VIP Menu ======
+# ========= الأزرار =========
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -95,13 +97,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data.startswith("reject_"):
         user_id = query.data.split("_")[1]
+
         await context.bot.send_message(
             chat_id=int(user_id),
             text="❌ تم رفض الطلب"
         )
+
         await query.message.edit_text("❌ تم الرفض")
 
-# ====== استقبال صورة الدفع ======
+# ========= استقبال الدفع =========
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     plan = context.user_data.get("plan")
@@ -132,7 +136,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("⏳ تم إرسال طلبك، بانتظار الموافقة")
 
-# ====== تحقق اشتراك ======
+# ========= تحقق VIP =========
 async def vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
 
@@ -141,8 +145,8 @@ async def vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ اشتراكك غير فعال")
 
-# ====== تشغيل ======
-def main():
+# ========= تشغيل =========
+async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -150,8 +154,8 @@ def main():
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    print("Bot running...")
-    app.run_polling()
+    print("Bot is running...")
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
