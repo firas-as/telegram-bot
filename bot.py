@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import asyncio
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -17,7 +18,7 @@ from telegram.ext import (
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 1332757886
 
-VIP_LINK = "https://t.me/+U0qTr_Ck7YszNzE8"
+CHANNEL_ID = -1003989734235
 
 WALLET = "TF7unwMkyxhNPMG5Yufec8zNdcAAgqjuMG"
 NETWORK = "TRC20"
@@ -53,9 +54,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "💎 EvoraFX VIP\n\n"
-        "📊 إشارات احترافية عالية الدقة\n"
-        "🎯 نتائج موثقة\n"
-        "💰 إدارة رأس مال ذكية\n\n"
+        "📊 إشارات احترافية\n"
+        "🎯 نتائج قوية\n"
+        "💰 إدارة رأس مال\n\n"
         "🔥 انضم الآن"
     )
 
@@ -82,32 +83,32 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["plan"] = query.data
 
         await query.message.reply_text(
-            f"💰 الدفع عبر {NETWORK}\n\n"
-            f"{plan['price']}$\n\n"
-            f"{WALLET}\n\n"
-            f"أرسل صورة الدفع 📸"
+            f"💰 الدفع عبر {NETWORK}\n\n{plan['price']}$\n{WALLET}\n\nأرسل صورة الدفع"
         )
 
     elif query.data.startswith("approve_"):
-        user_id = query.data.split("_")[1]
-        plan_key = db[user_id]["plan"]
+        user_id = int(query.data.split("_")[1])
+        plan_key = db[str(user_id)]["plan"]
         days = PLANS[plan_key]["days"]
 
-        db[user_id]["expiry"] = int(time.time()) + days * 86400
+        db[str(user_id)]["expiry"] = int(time.time()) + days * 86400
         save_db(db)
 
+        # ✅ إدخال المستخدم للقناة
+        await context.bot.unban_chat_member(CHANNEL_ID, user_id)
+
         await context.bot.send_message(
-            chat_id=int(user_id),
-            text=f"✅ تم تفعيل اشتراكك\n\n🔐 {VIP_LINK}"
+            chat_id=user_id,
+            text="✅ تم تفعيل اشتراكك ودخولك للقناة"
         )
 
         await query.message.edit_text("✅ تم القبول")
 
     elif query.data.startswith("reject_"):
-        user_id = query.data.split("_")[1]
+        user_id = int(query.data.split("_")[1])
 
         await context.bot.send_message(
-            chat_id=int(user_id),
+            chat_id=user_id,
             text="❌ تم رفض الطلب"
         )
 
@@ -139,16 +140,35 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("⏳ تم إرسال طلبك")
 
-# ====== RUN ======
-def main():
+# ====== طرد تلقائي ======
+async def check_expiry(app):
+    while True:
+        now = int(time.time())
+        for user_id in list(db.keys()):
+            if db[user_id]["expiry"] != 0 and db[user_id]["expiry"] < now:
+                try:
+                    await app.bot.ban_chat_member(CHANNEL_ID, int(user_id))
+                    await app.bot.unban_chat_member(CHANNEL_ID, int(user_id))
+                except:
+                    pass
+
+                db[user_id]["expiry"] = 0
+                save_db(db)
+
+        await asyncio.sleep(60)
+
+# ====== تشغيل ======
+async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
+    asyncio.create_task(check_expiry(app))
+
     print("Bot running...")
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
