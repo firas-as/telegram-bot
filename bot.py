@@ -48,10 +48,19 @@ db = load_db()
 # ====== START ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("💎 VIP", callback_data="vip")],
+        [InlineKeyboardButton("💎 دخول VIP", callback_data="vip")],
     ]
+
+    text = (
+        "💎 EvoraFX VIP\n\n"
+        "📊 إشارات احترافية عالية الدقة\n"
+        "🎯 نتائج موثقة\n"
+        "💰 إدارة رأس مال ذكية\n\n"
+        "🔥 انضم الآن"
+    )
+
     await update.message.reply_text(
-        "أهلاً فيك 👋",
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -74,8 +83,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text(
             f"💰 الدفع عبر {NETWORK}\n\n"
-            f"{plan['price']}$\n{WALLET}\n\n"
-            f"أرسل صورة الدفع"
+            f"{plan['price']}$\n\n"
+            f"{WALLET}\n\n"
+            f"أرسل صورة الدفع 📸"
         )
 
     elif query.data.startswith("approve_"):
@@ -88,15 +98,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=int(user_id),
-            text=f"✅ تم التفعيل\n{VIP_LINK}"
+            text=f"✅ تم تفعيل اشتراكك\n\n🔐 {VIP_LINK}"
         )
+
+        await query.message.edit_text("✅ تم القبول")
 
     elif query.data.startswith("reject_"):
         user_id = query.data.split("_")[1]
+
         await context.bot.send_message(
             chat_id=int(user_id),
-            text="❌ تم الرفض"
+            text="❌ تم رفض الطلب"
         )
+
+        await query.message.edit_text("❌ تم الرفض")
 
 # ====== PHOTO ======
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -104,7 +119,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     plan = context.user_data.get("plan")
 
     if not plan:
-        await update.message.reply_text("اختر الباقة أولاً")
+        await update.message.reply_text("❌ اختر الباقة أولاً")
         return
 
     db[str(user.id)] = {"plan": plan, "expiry": 0}
@@ -118,22 +133,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_photo(
         chat_id=ADMIN_ID,
         photo=update.message.photo[-1].file_id,
-        caption=f"طلب VIP\nID: {user.id}",
+        caption=f"💰 طلب VIP\nID: {user.id}",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-    await update.message.reply_text("تم إرسال الطلب")
+    await update.message.reply_text("⏳ تم إرسال طلبك")
 
 # ====== RUN ======
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("vip", start))
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    print("Running...")
+    print("Bot running...")
     app.run_polling()
 
 if __name__ == "__main__":
