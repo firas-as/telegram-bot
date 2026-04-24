@@ -2,7 +2,6 @@ import os
 import json
 import time
 import logging
-import asyncio
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -14,7 +13,7 @@ from telegram.ext import (
     filters,
 )
 
-# ========= إعدادات =========
+# ====== إعدادات ======
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 1332757886
 
@@ -33,7 +32,7 @@ DB_FILE = "users.json"
 
 logging.basicConfig(level=logging.INFO)
 
-# ========= قاعدة بيانات =========
+# ====== DB ======
 def load_db():
     if not os.path.exists(DB_FILE):
         return {}
@@ -46,17 +45,17 @@ def save_db(data):
 
 db = load_db()
 
-# ========= /start =========
+# ====== START ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("💎 VIP", callback_data="vip")],
     ]
     await update.message.reply_text(
-        "أهلاً فيك 👋\nWelcome to EvoraFX VIP",
+        "أهلاً فيك 👋",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ========= الأزرار =========
+# ====== BUTTON ======
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -75,9 +74,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text(
             f"💰 الدفع عبر {NETWORK}\n\n"
-            f"المبلغ: {plan['price']}$\n"
-            f"العنوان:\n{WALLET}\n\n"
-            f"بعد التحويل، أرسل صورة الإيصال 📸"
+            f"{plan['price']}$\n{WALLET}\n\n"
+            f"أرسل صورة الدفع"
         )
 
     elif query.data.startswith("approve_"):
@@ -90,72 +88,53 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=int(user_id),
-            text=f"✅ تم تفعيل اشتراكك\n\n🔐 رابط VIP:\n{VIP_LINK}"
+            text=f"✅ تم التفعيل\n{VIP_LINK}"
         )
-
-        await query.message.edit_text("✅ تم قبول المستخدم")
 
     elif query.data.startswith("reject_"):
         user_id = query.data.split("_")[1]
-
         await context.bot.send_message(
             chat_id=int(user_id),
-            text="❌ تم رفض الطلب"
+            text="❌ تم الرفض"
         )
 
-        await query.message.edit_text("❌ تم الرفض")
-
-# ========= استقبال الدفع =========
+# ====== PHOTO ======
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     plan = context.user_data.get("plan")
 
     if not plan:
-        await update.message.reply_text("❌ اختر الباقة أولاً")
+        await update.message.reply_text("اختر الباقة أولاً")
         return
 
-    db[str(user.id)] = {
-        "plan": plan,
-        "expiry": 0
-    }
+    db[str(user.id)] = {"plan": plan, "expiry": 0}
     save_db(db)
 
-    buttons = [
-        [
-            InlineKeyboardButton("✅ قبول", callback_data=f"approve_{user.id}"),
-            InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
-        ]
-    ]
+    buttons = [[
+        InlineKeyboardButton("✅ قبول", callback_data=f"approve_{user.id}"),
+        InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
+    ]]
 
     await context.bot.send_photo(
         chat_id=ADMIN_ID,
         photo=update.message.photo[-1].file_id,
-        caption=f"💰 طلب اشتراك\nID: {user.id}\nUsername: @{user.username}",
+        caption=f"طلب VIP\nID: {user.id}",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-    await update.message.reply_text("⏳ تم إرسال طلبك، بانتظار الموافقة")
+    await update.message.reply_text("تم إرسال الطلب")
 
-# ========= تحقق VIP =========
-async def vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.id)
-
-    if user_id in db and db[user_id]["expiry"] > time.time():
-        await update.message.reply_text(f"🔐 رابط VIP:\n{VIP_LINK}")
-    else:
-        await update.message.reply_text("❌ اشتراكك غير فعال")
-
-# ========= تشغيل =========
-async def main():
+# ====== RUN ======
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("vip", vip))
+    app.add_handler(CommandHandler("vip", start))
     app.add_handler(CallbackQueryHandler(button))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    print("Bot is running...")
-    await app.run_polling()
+    print("Running...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
