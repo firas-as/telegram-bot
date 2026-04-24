@@ -1,14 +1,116 @@
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import json
+import time
+import logging
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 TOKEN = os.getenv("TOKEN")
+ADMIN_ID = 1332757886
 
+WALLET = "TF7unwMkyxhNPMG5Yufec8zNdcAAgqjuMG"
+NETWORK = "TRC20"
+
+PLANS = {
+    "plan_1": {"price": 90},
+    "plan_3": {"price": 150},
+    "plan_12": {"price": 250},
+}
+
+DB_FILE = "users.json"
+
+logging.basicConfig(level=logging.INFO)
+
+def load_db():
+    if not os.path.exists(DB_FILE):
+        return {}
+    with open(DB_FILE, "r") as f:
+        return json.load(f)
+
+def save_db(data):
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f)
+
+db = load_db()
+
+# ===== START =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ البوت شغال 100%")
+    keyboard = [[InlineKeyboardButton("💎 دخول VIP", callback_data="vip")]]
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
+    await update.message.reply_text(
+        "💎 EvoraFX VIP\n\nاضغط للدخول",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
-print("Bot running...")
-app.run_polling()
+# ===== BUTTON =====
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "vip":
+        buttons = [
+            [InlineKeyboardButton("📅 شهر 90$", callback_data="plan_1")],
+            [InlineKeyboardButton("📆 3 أشهر 150$", callback_data="plan_3")],
+            [InlineKeyboardButton("📊 سنة 250$", callback_data="plan_12")],
+        ]
+        await query.message.reply_text("اختر الباقة:", reply_markup=InlineKeyboardMarkup(buttons))
+
+    elif query.data in PLANS:
+        context.user_data["plan"] = query.data
+        price = PLANS[query.data]["price"]
+
+        await query.message.reply_text(
+            f"💰 ادفع {price}$ عبر {NETWORK}\n{WALLET}\n\n📸 أرسل صورة الدفع"
+        )
+
+    elif query.data.startswith("approve_"):
+        user_id = int(query.data.split("_")[1])
+        await context.bot.send_message(user_id, "✅ تم تفعيل اشتراكك")
+
+# ===== PHOTO =====
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    plan = context.user_data.get("plan")
+
+    if not plan:
+        await update.message.reply_text("❌ اختر باقة أولاً")
+        return
+
+    db[str(user.id)] = {"plan": plan}
+    save_db(db)
+
+    buttons = [[
+        InlineKeyboardButton("✅ قبول", callback_data=f"approve_{user.id}"),
+        InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
+    ]]
+
+    await context.bot.send_photo(
+        ADMIN_ID,
+        update.message.photo[-1].file_id,
+        caption=f"💰 طلب اشتراك\nID: {user.id}",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+    await update.message.reply_text("⏳ تم إرسال طلبك")
+
+# ===== RUN =====
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+
+    print("Running...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
